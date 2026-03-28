@@ -1177,31 +1177,6 @@ export default function App() {
                       <option value="Income">Income only</option>
                     </select>
 
-                    {/* Bulk category */}
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">
-                        {selectedIds.size} selected
-                      </span>
-                      <select
-                        className="border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
-                        value={bulkCategory}
-                        onChange={(e) => setBulkCategory(e.target.value)}
-                      >
-                        {categorySet.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={handleBulkApplyCategory}
-                        disabled={!selectedIds.size}
-                        className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 disabled:opacity-40 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
-                      >
-                        Apply
-                      </button>
-                    </div>
-
                     <div className="flex-1" />
 
                     <button
@@ -1632,8 +1607,66 @@ export default function App() {
           with <i>Type</i> carrying the sign.
         </footer>
 
+        {/* Floating selection action bar */}
+        {selectedIds.size > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-[slideUp_0.2s_ease-out]">
+            <div className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 pl-5 pr-3 py-3 rounded-2xl shadow-2xl flex items-center gap-4 text-sm">
+              <span className="font-semibold whitespace-nowrap">
+                {selectedIds.size} row{selectedIds.size > 1 ? "s" : ""} selected
+              </span>
+              <div className="w-px h-5 bg-gray-700 dark:bg-gray-300" />
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 dark:text-gray-500 text-xs whitespace-nowrap">Set category:</span>
+                <select
+                  className="bg-gray-800 dark:bg-gray-200 border border-gray-700 dark:border-gray-300 text-white dark:text-gray-900 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  value={bulkCategory}
+                  onChange={(e) => setBulkCategory(e.target.value)}
+                >
+                  {categorySet.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => {
+                    handleBulkApplyCategory();
+                    setSelectedIds(new Set());
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-500 hover:bg-indigo-400 text-white transition-colors"
+                >
+                  Apply
+                </button>
+              </div>
+              <div className="w-px h-5 bg-gray-700 dark:bg-gray-300" />
+              <button
+                onClick={() => {
+                  setDeletedIds((prev) => {
+                    const next = new Set(prev);
+                    selectedIds.forEach((id) => next.add(id));
+                    return next;
+                  });
+                  setSelectedIds(new Set());
+                }}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-colors"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="p-1.5 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-300 transition-colors"
+                title="Clear selection"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Undo delete toast */}
-        {lastDeleted && (
+        {lastDeleted && !selectedIds.size && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-[slideUp_0.2s_ease-out]">
             <div className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm">
               <span>Deleted &quot;{lastDeleted.name.slice(0, 30)}{lastDeleted.name.length > 30 ? "..." : ""}&quot;</span>
