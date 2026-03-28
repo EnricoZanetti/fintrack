@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ftLogo from "./assets/ft-favicon.png";
 
 // Canvas runtime makes NPM packages available; if it fails, we fall back to a tiny parser.
@@ -40,28 +40,28 @@ const categorySet = [
 ];
 
 const categoryColorClasses: Record<string, string> = {
-  Groceries: "bg-emerald-100 text-emerald-800",
-  Transport: "bg-sky-100 text-sky-800",
-  Fuel: "bg-amber-100 text-amber-800",
-  Shopping: "bg-violet-100 text-violet-800",
-  Income: "bg-green-100 text-green-800",
-  Transfers: "bg-slate-100 text-slate-800",
-  Bills: "bg-orange-100 text-orange-800",
-  Health: "bg-rose-100 text-rose-800",
-  Subscriptions: "bg-indigo-100 text-indigo-800",
-  Leisure: "bg-fuchsia-100 text-fuchsia-800",
-  Travel: "bg-cyan-100 text-cyan-800",
-  Out: "bg-pink-100 text-pink-800",
-  Housing: "bg-yellow-100 text-yellow-800",
-  Rent: "bg-yellow-100 text-yellow-800",
-  Fees: "bg-red-100 text-red-800",
-  Gifts: "bg-lime-100 text-lime-800",
-  Education: "bg-teal-100 text-teal-800",
-  OtherExpenses: "bg-gray-100 text-gray-800",
+  Groceries: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+  Transport: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300",
+  Fuel: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+  Shopping: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300",
+  Income: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+  Transfers: "bg-slate-100 text-slate-800 dark:bg-slate-700/40 dark:text-slate-300",
+  Bills: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
+  Health: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300",
+  Subscriptions: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300",
+  Leisure: "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/40 dark:text-fuchsia-300",
+  Travel: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300",
+  Out: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300",
+  Housing: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
+  Rent: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
+  Fees: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+  Gifts: "bg-lime-100 text-lime-800 dark:bg-lime-900/40 dark:text-lime-300",
+  Education: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
+  OtherExpenses: "bg-gray-100 text-gray-800 dark:bg-gray-700/40 dark:text-gray-300",
 };
 
 function categoryBadgeClass(category: string): string {
-  return categoryColorClasses[category] || "bg-gray-100 text-gray-700";
+  return categoryColorClasses[category] || "bg-gray-100 text-gray-700 dark:bg-gray-700/40 dark:text-gray-300";
 }
 
 
@@ -150,17 +150,6 @@ function heuristicCategory(name: string): string {
   )
     return "Education";
   if (
-    has("eni") ||
-    has("esso") ||
-    has("shell") ||
-    has("q8") ||
-    has("total") ||
-    has("tamoil") ||
-    has(" api ") ||
-    has(" ip ")
-  )
-    return "Fuel";
-  if (
     has("bar ") ||
     has("caffe") ||
     has("ristor") ||
@@ -208,7 +197,7 @@ function heuristicCategory(name: string): string {
     has("tim") ||
     has("vodafone") ||
     has("windtre") ||
-    has("bolletta") 
+    has("bolletta")
   )
     return "Bills";
   if (has("affitto") || has("mutuo") || has("mortgage") || has("rispa"))
@@ -381,8 +370,33 @@ function parseAmount(input: string): number {
   return isNaN(num) ? 0 : sign * num;
 }
 
+// Format currency amounts nicely
+function formatCurrency(amount: number, currency?: string): string {
+  const formatted = amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return currency ? `${formatted} ${currency}` : formatted;
+}
+
+type SortKey = "Date" | "Type" | "Amount" | "Currency" | "Category" | "Name" | "Account" | "Notes" | "Source";
+type SortDir = "asc" | "desc";
+
 export default function App() {
   const [tab, setTab] = useState<"transform" | "settings">("transform");
+
+  // Dark mode
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const saved = localStorage.getItem("rcvt_darkMode");
+    if (saved !== null) return saved === "true";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+    localStorage.setItem("rcvt_darkMode", String(darkMode));
+  }, [darkMode]);
 
   // Settings (persist to localStorage)
   const [apiKey, setApiKey] = useState<string>("");
@@ -396,6 +410,7 @@ export default function App() {
   const [typeFilter, setTypeFilter] = useState<"Both" | "Expense" | "Income">(
     "Both"
   );
+  const [includeHeader, setIncludeHeader] = useState<boolean>(false);
 
   // Add types + state
   type EditableField = "Date" | "Category" | "Notes" | "Amount";
@@ -414,10 +429,26 @@ export default function App() {
   // deleted rows (by _id)
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
 
+  // undo delete
+  const [lastDeleted, setLastDeleted] = useState<{ id: string; name: string } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // selection for bulk actions
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkCategory, setBulkCategory] = useState<string>(categorySet[0]);
 
+  // Search
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Column sorting
+  const [sortKey, setSortKey] = useState<SortKey>("Date");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  // Drag & drop
+  const [isDragging, setIsDragging] = useState(false);
+
+  // LLM progress
+  const [classifying, setClassifying] = useState(false);
 
   // helper: commit draft edits for a row (merges into saved edits)
   const commitEditsFor = (id: string) => {
@@ -432,7 +463,7 @@ export default function App() {
     setEditing(null);
   };
 
-  const handleDeleteRow = (id: string) => {
+  const handleDeleteRow = (id: string, name: string) => {
     setDeletedIds((prev) => {
       const next = new Set(prev);
       next.add(id);
@@ -444,6 +475,21 @@ export default function App() {
       next.delete(id);
       return next;
     });
+    // Set up undo toast
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setLastDeleted({ id, name });
+    undoTimerRef.current = setTimeout(() => setLastDeleted(null), 5000);
+  };
+
+  const handleUndoDelete = () => {
+    if (!lastDeleted) return;
+    setDeletedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(lastDeleted.id);
+      return next;
+    });
+    setLastDeleted(null);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
   };
 
     const toggleSelectRow = (id: string) => {
@@ -467,6 +513,15 @@ export default function App() {
     });
   };
 
+  const handleColumnSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
 
   useEffect(() => {
     const s = localStorage.getItem("rcvt_settings");
@@ -482,6 +537,7 @@ export default function App() {
         );
         setModel(obj.model ?? "gpt-4o-mini");
         setTypeFilter(obj.typeFilter ?? "Both");
+        setIncludeHeader(obj.includeHeader ?? false);
       } catch {}
     }
   }, []);
@@ -495,6 +551,7 @@ export default function App() {
       onlyCompleted,
       model,
       typeFilter,
+      includeHeader,
     };
     localStorage.setItem("rcvt_settings", JSON.stringify(payload));
   }, [
@@ -505,6 +562,7 @@ export default function App() {
     onlyCompleted,
     model,
     typeFilter,
+    includeHeader,
   ]);
 
   // Upload & processing state
@@ -535,6 +593,7 @@ export default function App() {
     setDraftEdits({});
     setDeletedIds(new Set());
     setSelectedIds(new Set());
+    setSearchQuery("");
 
     const text = await file.text();
     let data: any[] = [];
@@ -579,6 +638,28 @@ export default function App() {
     setRawRows(data);
     setStatus(`Loaded ${data.length} rows.`);
   }
+
+  // Drag & drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0 && files[0].name.endsWith(".csv")) {
+      onFileSelected(files[0]);
+    } else {
+      setErrors(["Please drop a .csv file"]);
+    }
+  }, []);
 
   const filteredRows = useMemo(() => {
     const rows = (rawRows || []).filter(
@@ -651,21 +732,60 @@ export default function App() {
       });
   }, [transformedFiltered, edits, deletedIds]);
 
+  // Apply search filter
+  const searchedRows = useMemo(() => {
+    if (!searchQuery.trim()) return visibleRows;
+    const q = searchQuery.toLowerCase();
+    return visibleRows.filter(
+      (row: any) =>
+        (row.Name || "").toLowerCase().includes(q) ||
+        (row.Category || "").toLowerCase().includes(q) ||
+        (row.Notes || "").toLowerCase().includes(q)
+    );
+  }, [visibleRows, searchQuery]);
+
   const sortedRows = useMemo(() => {
-    // sort ascending by ISO Date (fallback to "" so undefined dates go last)
-    return [...visibleRows].sort((a: any, b: any) => {
-      const da = a.Date || "";
-      const db = b.Date || "";
-      if (da < db) return -1;
-      if (da > db) return 1;
-      // tie-breaker to keep order stable
+    return [...searchedRows].sort((a: any, b: any) => {
+      let va = a[sortKey] || "";
+      let vb = b[sortKey] || "";
+
+      // Numeric sort for Amount
+      if (sortKey === "Amount") {
+        const na = parseFloat(va) || 0;
+        const nb = parseFloat(vb) || 0;
+        return sortDir === "asc" ? na - nb : nb - na;
+      }
+
+      // String sort for everything else
+      if (va < vb) return sortDir === "asc" ? -1 : 1;
+      if (va > vb) return sortDir === "asc" ? 1 : -1;
       return (a._id || "").localeCompare(b._id || "");
     });
+  }, [searchedRows, sortKey, sortDir]);
+
+  // Summary stats
+  const stats = useMemo(() => {
+    let totalExpense = 0;
+    let totalIncome = 0;
+    const currencies = new Set<string>();
+    for (const row of visibleRows) {
+      const amt = parseFloat((row as any).Amount) || 0;
+      currencies.add((row as any).Currency);
+      if ((row as any).Type === "Expense") totalExpense += amt;
+      else totalIncome += amt;
+    }
+    return {
+      totalExpense,
+      totalIncome,
+      net: totalIncome - totalExpense,
+      primaryCurrency: currencies.size === 1 ? Array.from(currencies)[0] : undefined,
+    };
   }, [visibleRows]);
 
   async function handleClassify() {
     try {
       if (!apiKey) throw new Error("Please add your LLM API key in Settings.");
+      setClassifying(true);
       setStatus("Classifying with LLM...");
       const map = await classifyWithOpenAI(uniqueNames, apiKey, model);
       setCategoryMap(map);
@@ -673,6 +793,8 @@ export default function App() {
     } catch (e: any) {
       setStatus("");
       setErrors((x) => [...x, e.message || String(e)]);
+    } finally {
+      setClassifying(false);
     }
   }
 
@@ -688,11 +810,13 @@ export default function App() {
       "Notes",
       "Source",
     ];
+
+    const headerRow = includeHeader ? cols.join(",") + "\n" : "";
     const body = sortedRows
       .map((row) => cols.map((c) => csvEscape((row as any)[c])).join(","))
       .join("\n");
 
-    const csv = body ? body + "\n" : "";
+    const csv = headerRow + (body ? body + "\n" : "");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -706,217 +830,360 @@ export default function App() {
     URL.revokeObjectURL(url);
   }
 
+  function handleReset() {
+    setRawRows([]);
+    setErrors([]);
+    setCategoryMap({});
+    setEdits({});
+    setDraftEdits({});
+    setDeletedIds(new Set());
+    setSelectedIds(new Set());
+    setSearchQuery("");
+    setLastDeleted(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  const sortArrow = (key: SortKey) => {
+    if (sortKey !== key) return <span className="opacity-0 group-hover:opacity-40 ml-1">&#8597;</span>;
+    return <span className="ml-1">{sortDir === "asc" ? "\u2191" : "\u2193"}</span>;
+  };
+
+  const hasData = filteredRows.length > 0;
+
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img
-              src={ftLogo}
-              alt="FinTrack logo"
-              className="h-10 w-10"
-            />
-            <div>
-              <h1 className="text-lg font-semibold">
-                {websiteName || siteNameDefault}
-              </h1>
-              <p className="text-xs text-gray-500">
-                Upload your Revolut CSV → classify → download a clean CSV
-              </p>
+    <div className={classNames("min-h-screen transition-colors duration-200", darkMode ? "dark" : "")}>
+      <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+        {/* Header */}
+        <header className="sticky top-0 z-20 bg-white/90 dark:bg-gray-900/90 backdrop-blur border-b border-gray-200 dark:border-gray-800">
+          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img
+                src={ftLogo}
+                alt="FinTrack logo"
+                className="h-10 w-10 rounded-lg"
+              />
+              <div>
+                <h1 className="text-lg font-semibold">
+                  {websiteName || siteNameDefault}
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Upload &rarr; classify &rarr; download clean CSV
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <nav className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+                <button
+                  onClick={() => setTab("transform")}
+                  className={classNames(
+                    "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
+                    tab === "transform"
+                      ? "bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  )}
+                >
+                  Transform
+                </button>
+                <button
+                  onClick={() => setTab("settings")}
+                  className={classNames(
+                    "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
+                    tab === "settings"
+                      ? "bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  )}
+                >
+                  Settings
+                </button>
+              </nav>
+              {/* Dark mode toggle */}
+              <button
+                onClick={() => setDarkMode((d) => !d)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {darkMode ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
             </div>
           </div>
-          <nav className="flex gap-1 p-1 bg-gray-100 rounded-xl">
-            <button
-              onClick={() => setTab("transform")}
-              className={classNames(
-                "px-3 py-1.5 rounded-lg text-sm",
-                tab === "transform" ? "bg-white shadow" : "text-gray-600"
-              )}
-            >
-              Transform
-            </button>
-            <button
-              onClick={() => setTab("settings")}
-              className={classNames(
-                "px-3 py-1.5 rounded-lg text-sm",
-                tab === "settings" ? "bg-white shadow" : "text-gray-600"
-              )}
-            >
-              Settings
-            </button>
-          </nav>
-        </div>
-      </header>
+        </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        {tab === "settings" ? (
-          <section className="grid gap-6">
-            <div className="bg-white rounded-2xl shadow p-5">
-              <h2 className="text-base font-semibold mb-3">General</h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                <label className="grid gap-1 text-sm">
-                  <span className="text-gray-600">Source name</span>
-                  <input
-                    className="border rounded-lg px-3 py-2"
-                    value={websiteName}
-                    onChange={(e) => setWebsiteName(e.target.value)}
-                    placeholder={siteNameDefault}
-                  />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="text-gray-600">Source</span>
-                  <select
-                    className="border rounded-lg px-3 py-2"
-                    value={source}
-                    onChange={(e) => setSource(e.target.value)}
-                  >
-                    <option>Revolut</option>
-                  </select>
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="text-gray-600">Date field</span>
-                  <select
-                    className="border rounded-lg px-3 py-2"
-                    value={dateField}
-                    onChange={(e) => setDateField(e.target.value as any)}
-                  >
-                    <option>Completed Date</option>
-                    <option>Started Date</option>
-                  </select>
-                </label>
-                <label className="flex items-center gap-3 text-sm pt-6">
-                  <input
-                    type="checkbox"
-                    checked={onlyCompleted}
-                    onChange={(e) => setOnlyCompleted(e.target.checked)}
-                  />
-                  Include only rows with{" "}
-                  <code className="px-1 rounded bg-gray-100">
-                    State = COMPLETED
-                  </code>
-                </label>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow p-5">
-              <h2 className="text-base font-semibold mb-3">LLM</h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                <label className="grid gap-1 text-sm">
-                  <span className="text-gray-600">OpenAI API key</span>
-                  <input
-                    type="password"
-                    className="border rounded-lg px-3 py-2"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk-..."
-                  />
-                  <span className="text-xs text-gray-500">
-                    Stored locally in your browser. For prototypes only—avoid
-                    exposing secrets in client apps.
-                  </span>
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="text-gray-600">Model</span>
-                  <select
-                    className="border rounded-lg px-3 py-2"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                  >
-                    <option value="gpt-4o-mini">gpt-4o-mini</option>
-                    <option value="gpt-4o">gpt-4o</option>
-                    <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-          </section>
-        ) : (
-          <section className="grid gap-6">
-            <div className="bg-white rounded-2xl shadow p-5 flex flex-col gap-3">
-              <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
-                <div>
-                  <h2 className="text-base font-semibold">
-                    Upload Revolut CSV
-                  </h2>
-                  <p className="text-sm text-gray-600">
-                    Expected headers:{" "}
-                    <code className="bg-gray-100 rounded px-1">
-                      Type, Product, Started Date, Completed Date, Description,
-                      Amount, Fee, Currency, State, Balance
-                    </code>
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="border rounded-lg px-3 py-2"
-                    onChange={(e) =>
-                      e.target.files && onFileSelected(e.target.files[0])
-                    }
-                  />
-                  <button
-                    onClick={() => {
-                      setRawRows([]);
-                      setErrors([]);
-                      setCategoryMap({});
-                      setEdits({});
-                      setDraftEdits({});
-                      setDeletedIds(new Set());
-                      setSelectedIds(new Set());
-                      if (fileRef.current) fileRef.current.value = "";
-                    }}
-                    className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50"
-                  >
-                    Reset
-                  </button>
+        <main className="max-w-7xl mx-auto px-4 py-6">
+          {tab === "settings" ? (
+            <section className="grid gap-6 max-w-3xl">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
+                <h2 className="text-base font-semibold mb-4">General</h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="text-gray-600 dark:text-gray-400 font-medium">Source name</span>
+                    <input
+                      className="border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                      value={websiteName}
+                      onChange={(e) => setWebsiteName(e.target.value)}
+                      placeholder={siteNameDefault}
+                    />
+                  </label>
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="text-gray-600 dark:text-gray-400 font-medium">Source</span>
+                    <select
+                      className="border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                      value={source}
+                      onChange={(e) => setSource(e.target.value)}
+                    >
+                      <option>Revolut</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="text-gray-600 dark:text-gray-400 font-medium">Date field</span>
+                    <select
+                      className="border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                      value={dateField}
+                      onChange={(e) => setDateField(e.target.value as any)}
+                    >
+                      <option>Completed Date</option>
+                      <option>Started Date</option>
+                    </select>
+                  </label>
+                  <div className="flex flex-col gap-3 pt-6">
+                    <label className="flex items-center gap-3 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={onlyCompleted}
+                        onChange={(e) => setOnlyCompleted(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      Only include rows with{" "}
+                      <code className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-xs">
+                        State = COMPLETED
+                      </code>
+                    </label>
+                    <label className="flex items-center gap-3 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeHeader}
+                        onChange={(e) => setIncludeHeader(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      Include header row in downloaded CSV
+                    </label>
+                  </div>
                 </div>
               </div>
 
+              <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
+                <h2 className="text-base font-semibold mb-4">LLM Classification</h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="text-gray-600 dark:text-gray-400 font-medium">OpenAI API key</span>
+                    <input
+                      type="password"
+                      className="border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="sk-..."
+                    />
+                    <span className="text-xs text-gray-500 dark:text-gray-500">
+                      Stored locally in your browser. For prototypes only.
+                    </span>
+                  </label>
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="text-gray-600 dark:text-gray-400 font-medium">Model</span>
+                    <select
+                      className="border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                    >
+                      <option value="gpt-4o-mini">gpt-4o-mini</option>
+                      <option value="gpt-4o">gpt-4o</option>
+                      <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <section className="grid gap-6">
+              {/* Upload zone */}
+              <div
+                className={classNames(
+                  "bg-white dark:bg-gray-900 rounded-2xl shadow-sm border-2 border-dashed p-8 transition-all duration-200",
+                  isDragging
+                    ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
+                    : "border-gray-300 dark:border-gray-700",
+                  !hasData && "min-h-[200px] flex flex-col items-center justify-center"
+                )}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                {!hasData ? (
+                  <div className="text-center">
+                    <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                      Upload your Revolut CSV
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      Drag and drop your file here, or click to browse
+                    </p>
+                    <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium text-sm hover:bg-indigo-700 cursor-pointer transition-colors">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                      Choose file
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept=".csv,text/csv"
+                        className="hidden"
+                        onChange={(e) =>
+                          e.target.files && onFileSelected(e.target.files[0])
+                        }
+                      />
+                    </label>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+                      Expected: Type, Product, Started Date, Completed Date, Description, Amount, Fee, Currency, State, Balance
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between -m-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{rawRows.length} rows loaded</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{filteredRows.length} after filters, {uniqueNames.length} unique merchants</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                        Upload new file
+                        <input
+                          ref={fileRef}
+                          type="file"
+                          accept=".csv,text/csv"
+                          className="hidden"
+                          onChange={(e) =>
+                            e.target.files && onFileSelected(e.target.files[0])
+                          }
+                        />
+                      </label>
+                      <button
+                        onClick={handleReset}
+                        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm transition-colors"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Status / Errors */}
               {status && (
-                <div className="text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                <div className="text-sm text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3 flex items-center gap-2">
+                  {classifying && (
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  )}
                   {status}
                 </div>
               )}
               {errors.length > 0 && (
-                <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+                <div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl p-3">
                   {errors.map((e, i) => (
-                    <div key={i}>• {e}</div>
+                    <div key={i}>&#x2022; {e}</div>
                   ))}
                 </div>
               )}
 
-              {filteredRows.length > 0 && (
-                <div className="flex flex-col gap-3 mt-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="text-sm text-gray-700 flex items-center gap-2">
-                      Type
-                      <select
-                        className="border rounded-lg px-2 py-1"
-                        value={typeFilter}
-                        onChange={(e) => setTypeFilter(e.target.value as any)}
-                      >
-                        <option value="Both">Both</option>
-                        <option value="Expense">Expense only</option>
-                        <option value="Income">Income only</option>
-                      </select>
-                    </label>
+              {/* Summary Cards */}
+              {hasData && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-4">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Income</p>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
+                      +{formatCurrency(stats.totalIncome, stats.primaryCurrency)}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-4">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Expenses</p>
+                    <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
+                      -{formatCurrency(stats.totalExpense, stats.primaryCurrency)}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-4">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Net Balance</p>
+                    <p className={classNames(
+                      "text-2xl font-bold mt-1",
+                      stats.net >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                    )}>
+                      {stats.net >= 0 ? "+" : "-"}{formatCurrency(Math.abs(stats.net), stats.primaryCurrency)}
+                    </p>
+                  </div>
+                </div>
+              )}
 
-                    <div className="text-sm text-gray-600">
-                      Rows loaded: <b>{rawRows.length}</b> • After filter:{" "}
-                      <b>{filteredRows.length}</b> • Export rows:{" "}
-                      <b>{sortedRows.length}</b> • Unique names:{" "}
-                      <b>{uniqueNames.length}</b>
+              {/* Controls bar */}
+              {hasData && (
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-[200px] max-w-sm">
+                      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <input
+                        type="text"
+                        placeholder="Search transactions..."
+                        className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
 
-                    {/* bulk category for selected */}
+                    {/* Type filter */}
+                    <select
+                      className="border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                      value={typeFilter}
+                      onChange={(e) => setTypeFilter(e.target.value as any)}
+                    >
+                      <option value="Both">All types</option>
+                      <option value="Expense">Expenses only</option>
+                      <option value="Income">Income only</option>
+                    </select>
+
+                    {/* Bulk category */}
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-600">
-                        Selected: <b>{selectedIds.size}</b>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {selectedIds.size} selected
                       </span>
                       <select
-                        className="border rounded-lg px-2 py-1"
+                        className="border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
                         value={bulkCategory}
                         onChange={(e) => setBulkCategory(e.target.value)}
                       >
@@ -929,9 +1196,9 @@ export default function App() {
                       <button
                         onClick={handleBulkApplyCategory}
                         disabled={!selectedIds.size}
-                        className="px-2 py-1 rounded-lg text-xs bg-gray-900 text-white disabled:opacity-40"
+                        className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 disabled:opacity-40 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
                       >
-                        Apply to selected
+                        Apply
                       </button>
                     </div>
 
@@ -939,31 +1206,52 @@ export default function App() {
 
                     <button
                       onClick={handleClassify}
-                      className="px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
-                      disabled={!uniqueNames.length || !apiKey}
+                      className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium transition-colors flex items-center gap-2"
+                      disabled={!uniqueNames.length || !apiKey || classifying}
                       title={
                         !apiKey ? "Add your API key in Settings" : "Classify with LLM"
                       }
                     >
+                      {classifying && (
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      )}
                       Classify with LLM
                     </button>
                     <button
                       onClick={handleDownload}
-                      className="px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                      className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium transition-colors flex items-center gap-2"
                     >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
                       Download CSV
                     </button>
                   </div>
 
-                  <div className="overflow-auto rounded-xl border">
+                  {/* Row count info */}
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                    Showing <b>{sortedRows.length}</b> of <b>{visibleRows.length}</b> rows
+                    {searchQuery && ` matching "${searchQuery}"`}
+                    {deletedIds.size > 0 && ` (${deletedIds.size} deleted)`}
+                  </div>
+                </div>
+              )}
+
+              {/* Data Table */}
+              {hasData && (
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
+                  <div className="overflow-auto">
                     <table className="min-w-full text-sm">
-                      <thead className="bg-gray-100 sticky top-0">
+                      <thead className="bg-gray-50 dark:bg-gray-800/80 sticky top-0 z-10">
                         <tr>
                           {/* select all checkbox */}
-                          <th className="px-3 py-2">
+                          <th className="px-3 py-3">
                             <input
                               type="checkbox"
-                              className="h-4 w-4"
+                              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                               checked={
                                 sortedRows.length > 0 &&
                                 sortedRows.every((row: any) => selectedIds.has(row._id))
@@ -984,74 +1272,81 @@ export default function App() {
                             />
                           </th>
                           {/* delete column header (blank) */}
-                          <th className="px-3 py-2" />
-                          {[
-                            "Date",
-                            "Type",
-                            "Amount",
-                            "Currency",
-                            "Category",
-                            "Name",
-                            "Account",
-                            "Notes",
-                            "Source",
-                          ].map((h) => (
+                          <th className="px-2 py-3 w-8" />
+                          {(
+                            [
+                              "Date",
+                              "Type",
+                              "Amount",
+                              "Currency",
+                              "Category",
+                              "Name",
+                              "Account",
+                              "Notes",
+                              "Source",
+                            ] as SortKey[]
+                          ).map((h) => (
                             <th
                               key={h}
-                              className="text-left font-semibold px-3 py-2 whitespace-nowrap"
+                              className="text-left font-semibold px-3 py-3 whitespace-nowrap cursor-pointer select-none group hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                              onClick={() => handleColumnSort(h)}
                             >
-                              {h}
+                              <span className="inline-flex items-center">
+                                {h}
+                                {sortArrow(h)}
+                              </span>
                             </th>
                           ))}
                         </tr>
                       </thead>
-                      <tbody>
-                        {sortedRows.map((row: any, i: number) => {
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {sortedRows.map((row: any) => {
                           const isSelected = selectedIds.has(row._id);
                           const baseColor =
                             row.Type === "Expense"
-                              ? "bg-red-50"
+                              ? "bg-red-50/50 dark:bg-red-950/20"
                               : row.Type === "Income"
-                              ? "bg-green-50"
-                              : i % 2
-                              ? "bg-white"
-                              : "bg-gray-50";
+                              ? "bg-green-50/50 dark:bg-green-950/20"
+                              : "";
 
                           return (
                             <tr
                               key={row._id}
                               className={classNames(
                                 baseColor,
-                                isSelected && "ring-2 ring-indigo-300"
+                                "hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
+                                isSelected && "ring-2 ring-inset ring-indigo-300 dark:ring-indigo-600"
                               )}
                             >
                               {/* selection checkbox */}
-                              <td className="px-3 py-2 whitespace-nowrap">
+                              <td className="px-3 py-2.5 whitespace-nowrap">
                                 <input
                                   type="checkbox"
-                                  className="h-4 w-4"
+                                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                   checked={isSelected}
                                   onChange={() => toggleSelectRow(row._id)}
                                 />
                               </td>
 
                               {/* delete button */}
-                              <td className="px-3 py-2 whitespace-nowrap">
+                              <td className="px-2 py-2.5 whitespace-nowrap">
                                 <button
-                                  onClick={() => handleDeleteRow(row._id)}
-                                  className="text-red-500 hover:text-red-700 text-xs"
+                                  onClick={() => handleDeleteRow(row._id, row.Name)}
+                                  className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30"
                                   title="Remove row"
                                 >
-                                  ✕
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
                                 </button>
                               </td>
 
                               {/* Date */}
-                              <td className="px-3 py-2 whitespace-nowrap">
+                              <td className="px-3 py-2.5 whitespace-nowrap">
                                 {editing?.id === row._id && editing?.field === "Date" ? (
                                   <input
                                     type="date"
-                                    className="border rounded px-2 py-1"
+                                    className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                     value={
                                       (draftEdits[row._id]?.Date ??
                                         edits[row._id]?.Date ??
@@ -1083,25 +1378,33 @@ export default function App() {
                                   />
                                 ) : (
                                   <button
-                                    className="text-left w-full"
+                                    className="text-left w-full hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                                     onClick={() => setEditing({ id: row._id, field: "Date" })}
+                                    title="Click to edit"
                                   >
-                                    {row.Date || <span className="text-gray-400">—</span>}
+                                    {row.Date || <span className="text-gray-400">--</span>}
                                   </button>
                                 )}
                               </td>
 
                               {/* Type */}
-                              <td className="px-3 py-2 whitespace-nowrap">
-                                {row.Type}
+                              <td className="px-3 py-2.5 whitespace-nowrap">
+                                <span className={classNames(
+                                  "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium",
+                                  row.Type === "Expense"
+                                    ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                                    : "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                                )}>
+                                  {row.Type}
+                                </span>
                               </td>
 
                               {/* Amount */}
-                              <td className="px-3 py-2 whitespace-nowrap">
+                              <td className="px-3 py-2.5 whitespace-nowrap font-mono text-right">
                                 {editing?.id === row._id && editing?.field === "Amount" ? (
                                   <input
                                     type="text"
-                                    className="border rounded px-2 py-1 w-24"
+                                    className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded px-2 py-1 w-24 text-sm text-right focus:ring-2 focus:ring-indigo-500 outline-none"
                                     value={
                                       (draftEdits[row._id]?.Amount ??
                                         edits[row._id]?.Amount ??
@@ -1133,8 +1436,9 @@ export default function App() {
                                   />
                                 ) : (
                                   <button
-                                    className="text-left w-full"
+                                    className="text-right w-full hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                                     onClick={() => setEditing({ id: row._id, field: "Amount" })}
+                                    title="Click to edit"
                                   >
                                     {row.Amount}
                                   </button>
@@ -1142,12 +1446,12 @@ export default function App() {
                               </td>
 
                               {/* Currency */}
-                              <td className="px-3 py-2 whitespace-nowrap">
+                              <td className="px-3 py-2.5 whitespace-nowrap text-gray-500 dark:text-gray-400">
                                 {row.Currency}
                               </td>
 
                               {/* Category with colored badge */}
-                              <td className="px-3 py-2 whitespace-nowrap">
+                              <td className="px-3 py-2.5 whitespace-nowrap">
                                 {editing?.id === row._id && editing?.field === "Category" ? (
                                   (() => {
                                     const current =
@@ -1159,7 +1463,7 @@ export default function App() {
                                       : "OtherExpenses";
                                     return (
                                       <select
-                                        className="border rounded px-2 py-1"
+                                        className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                         value={safeValue}
                                         onChange={(e) =>
                                           setDraftEdits((d) => ({
@@ -1202,35 +1506,36 @@ export default function App() {
                                         field: "Category",
                                       })
                                     }
+                                    title="Click to edit"
                                   >
                                     {row.Category ? (
                                       <span
                                         className={classNames(
-                                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
                                           categoryBadgeClass(row.Category)
                                         )}
                                       >
                                         {row.Category}
                                       </span>
                                     ) : (
-                                      <span className="text-gray-400">—</span>
+                                      <span className="text-gray-400">--</span>
                                     )}
                                   </button>
                                 )}
                               </td>
 
                               {/* Name */}
-                              <td className="px-3 py-2">{row.Name}</td>
+                              <td className="px-3 py-2.5 max-w-[200px] truncate" title={row.Name}>{row.Name}</td>
 
                               {/* Account */}
-                              <td className="px-3 py-2 whitespace-nowrap">{row.Account}</td>
+                              <td className="px-3 py-2.5 whitespace-nowrap text-gray-500 dark:text-gray-400">{row.Account}</td>
 
                               {/* Notes */}
-                              <td className="px-3 py-2 whitespace-nowrap">
+                              <td className="px-3 py-2.5 whitespace-nowrap">
                                 {editing?.id === row._id && editing?.field === "Notes" ? (
                                   <input
                                     type="text"
-                                    className="border rounded px-2 py-1 w-48"
+                                    className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded px-2 py-1 w-48 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                     value={
                                       (draftEdits[row._id]?.Notes ??
                                         edits[row._id]?.Notes ??
@@ -1262,59 +1567,86 @@ export default function App() {
                                   />
                                 ) : (
                                   <button
-                                    className="text-left w-full"
+                                    className="text-left w-full hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                                     onClick={() => setEditing({ id: row._id, field: "Notes" })}
+                                    title="Click to edit"
                                   >
                                     {row.Notes ? (
                                       row.Notes
                                     ) : (
-                                      <span className="text-gray-400">Click to add</span>
+                                      <span className="text-gray-400 text-xs italic">Add note</span>
                                     )}
                                   </button>
                                 )}
                               </td>
 
                               {/* Source */}
-                              <td className="px-3 py-2 whitespace-nowrap">{row.Source}</td>
+                              <td className="px-3 py-2.5 whitespace-nowrap text-gray-500 dark:text-gray-400">{row.Source}</td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
+
+                    {sortedRows.length === 0 && (
+                      <div className="py-12 text-center text-gray-500 dark:text-gray-400">
+                        {searchQuery ? (
+                          <>No transactions matching &quot;{searchQuery}&quot;</>
+                        ) : (
+                          <>No transactions to display</>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
-            </div>
 
-            <div className="bg-white rounded-2xl shadow p-5">
-              <h3 className="font-semibold mb-2">How it works</h3>
-              <ol className="list-decimal ml-5 text-sm text-gray-700 space-y-1">
-                <li>
-                  Go to <b>Settings</b> → paste your OpenAI API key (optional
-                  but recommended).
-                </li>
-                <li>
-                  Back to <b>Transform</b> → upload the Revolut{" "}
-                  <code>.csv</code> export.
-                </li>
-                <li>
-                  Click <b>Classify with LLM</b> to assign categories by
-                  transaction name. If no key, a simple heuristic is used.
-                </li>
-                <li>
-                  Click <b>Download CSV</b> to save the normalized file with the
-                  required columns.
-                </li>
-              </ol>
+              {/* How it works (only show when no data) */}
+              {!hasData && (
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
+                  <h3 className="font-semibold mb-3">How it works</h3>
+                  <div className="grid sm:grid-cols-4 gap-4">
+                    {[
+                      { step: "1", title: "Configure", desc: "Add your OpenAI API key in Settings (optional)" },
+                      { step: "2", title: "Upload", desc: "Drop your Revolut CSV file on this page" },
+                      { step: "3", title: "Classify", desc: "Auto-categorize transactions with LLM or heuristics" },
+                      { step: "4", title: "Download", desc: "Get your clean, normalized CSV file" },
+                    ].map((item) => (
+                      <div key={item.step} className="text-center">
+                        <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 font-bold text-lg mb-2">
+                          {item.step}
+                        </div>
+                        <h4 className="font-medium text-sm">{item.title}</h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+        </main>
+
+        <footer className="max-w-7xl mx-auto px-4 pb-10 text-xs text-gray-400 dark:text-gray-600">
+          FinTrack &mdash; Amounts are normalized as positive numbers,
+          with <i>Type</i> carrying the sign.
+        </footer>
+
+        {/* Undo delete toast */}
+        {lastDeleted && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-[slideUp_0.2s_ease-out]">
+            <div className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm">
+              <span>Deleted &quot;{lastDeleted.name.slice(0, 30)}{lastDeleted.name.length > 30 ? "..." : ""}&quot;</span>
+              <button
+                onClick={handleUndoDelete}
+                className="font-semibold text-indigo-400 dark:text-indigo-600 hover:text-indigo-300 dark:hover:text-indigo-500 transition-colors"
+              >
+                Undo
+              </button>
             </div>
-          </section>
+          </div>
         )}
-      </main>
-
-      <footer className="max-w-6xl mx-auto px-4 pb-10 text-xs text-gray-500">
-        Built for Revolut exports • Amounts are normalized as positive numbers,
-        with <i>Type</i> carrying the sign.
-      </footer>
+      </div>
     </div>
   );
 }
