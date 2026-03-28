@@ -24,11 +24,12 @@ const categorySet = [
   "Groceries",
   "Transport",
   "Car/Bike",
-  "Subscriptions",
+  "Fuel",
   "Education",
   "Out",
   "Travel",
   "Shopping",
+  "Subscriptions",
   "Leisure",
   "Gifts & Donations",
   "Electronics",
@@ -174,7 +175,8 @@ function heuristicCategory(name: string): string {
     has("Urban Factory Lab") ||
     has("pasticceria") ||
     has("Grupppo Negozi") ||
-    has("ramen")
+    has("ramen") ||
+    has("piadineria")
   )
     return "Out";
   if (
@@ -196,7 +198,8 @@ function heuristicCategory(name: string): string {
     has("prime") ||
     has("disney") ||
     has("openai") ||
-    has("google")
+    has("google") ||
+    has("claude")
   )
     return "Subscriptions";
   if (
@@ -205,7 +208,7 @@ function heuristicCategory(name: string): string {
     has("tim") ||
     has("vodafone") ||
     has("windtre") ||
-    has("bolletta")
+    has("bolletta") 
   )
     return "Bills";
   if (has("affitto") || has("mutuo") || has("mortgage") || has("rispa"))
