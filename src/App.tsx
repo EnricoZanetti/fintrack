@@ -163,7 +163,7 @@ function heuristicCategory(name: string): string {
     has("kebab") ||
     has("Urban Factory Lab") ||
     has("pasticceria") ||
-    has("Grupppo Negozi") ||
+    has("Gruppo Negozi") ||
     has("ramen") ||
     has("piadineria")
   )
